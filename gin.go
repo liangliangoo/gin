@@ -176,6 +176,7 @@ var _ IRouter = &Engine{}
 func New() *Engine {
 	debugPrintWARNINGNew()
 	engine := &Engine{
+		// 实例化RouterGroup,其中Handlers为中间件数组
 		RouterGroup: RouterGroup{
 			Handlers: nil,
 			basePath: "/",
@@ -192,13 +193,15 @@ func New() *Engine {
 		RemoveExtraSlash:       false,
 		UnescapePathValues:     true,
 		MaxMultipartMemory:     defaultMultipartMemory,
-		trees:                  make(methodTrees, 0, 9),
-		delims:                 render.Delims{Left: "{{", Right: "}}"},
-		secureJSONPrefix:       "while(1);",
-		trustedProxies:         []string{"0.0.0.0/0", "::/0"},
-		trustedCIDRs:           defaultTrustedCIDRs,
+		//trees 是最重要的点!!!! 负责存储路由和handle方法的映射,采用类似字典树的结构
+		trees:            make(methodTrees, 0, 9),
+		delims:           render.Delims{Left: "{{", Right: "}}"},
+		secureJSONPrefix: "while(1);",
+		trustedProxies:   []string{"0.0.0.0/0", "::/0"},
+		trustedCIDRs:     defaultTrustedCIDRs,
 	}
 	engine.RouterGroup.engine = engine
+	//这里采用 sync/pool 实现context池,减少频繁context实例化带来的资源消耗
 	engine.pool.New = func() any {
 		return engine.allocateContext()
 	}
@@ -299,8 +302,8 @@ func (engine *Engine) NoMethod(handlers ...HandlerFunc) {
 // For example, this is the right place for a logger or error management middleware.
 func (engine *Engine) Use(middleware ...HandlerFunc) IRoutes {
 	engine.RouterGroup.Use(middleware...)
-	engine.rebuild404Handlers()
-	engine.rebuild405Handlers()
+	engine.rebuild404Handlers() // 处理404的handler
+	engine.rebuild405Handlers() // 处理404的handler
 	return engine
 }
 
